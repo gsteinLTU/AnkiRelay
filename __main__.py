@@ -7,7 +7,7 @@ from environs import Env
 env = Env()
 env.read_env()
 server = env('SERVER')
-port = env('PORT')
+port = int(env('PORT'))
 
 # Read robot list
 robots = []
@@ -17,14 +17,29 @@ with open(".robots") as robotfile:
 if robots == []:
     raise Exception("No robots in .robots file.")
 
-print(robots)
+# Connect to robots
+robots = [anki_vector.Robot(robot) for robot in robots]
 
-# Setup connection
+for robot in robots:
+    robot.connect()
+
+# Setup server connection
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(("127.0.0.1", 1974))
+sock.bind(('localhost', 4791))
+sock.settimeout(1)
 
 while True:
+    # Send announcement
+    for robot in robots:
+        msg = robot._name
+        sock.sendto(msg.encode("UTF-8"), (server, port))
+        print('.')
+    
+    print('\n')
 
-
-    data, addr = sock.recvfrom(1024)
-    print("Received message " + str(data))
+    # Wait for message
+    try:
+        data, addr = sock.recvfrom(128)
+        print("Received message " + str(data))
+    except:
+        pass
