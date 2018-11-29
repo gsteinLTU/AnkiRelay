@@ -1,4 +1,5 @@
 import anki_vector
+from anki_vector.util import degrees, distance_mm, speed_mmps
 import socket
 import os
 from environs import Env
@@ -22,6 +23,13 @@ robots = [anki_vector.Robot(robot) for robot in robots]
 
 for robot in robots:
     robot.connect()
+
+
+# Commands list
+commands = []
+commands.append(("say ", lambda robot, msg : robot.say_text(msg[4:])))
+commands.append(("spin", lambda robot, msg : robot.behavior.turn_in_place(degrees(360))))
+commands.append(("turn ", lambda robot, msg : robot.behavior.turn_in_place(degrees(int(msg[5:])))))
 
 # Setup server connection
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -49,13 +57,18 @@ while True:
 
         robot = [robot for robot in robots if robot._name == msg[0]]
 
+        # Verify robot 
         if robot == []:
             print("Invalid robot")
         else:
             msg = msg[1]
 
             print("Received command " + msg)
-            if msg.startswith("say "):
-                robot[0].say_text(msg[4:])
+
+            # Find command and run it
+            for command in commands:
+                if msg.startswith(command[0]):
+                    command[1](robot[0], msg)
+                    break
     except:
         pass
