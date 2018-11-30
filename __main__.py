@@ -2,7 +2,11 @@ import anki_vector
 import socket
 import os
 from environs import Env
-from commands import commands
+from commands import commands, requests
+
+def sendtoserver(msg):
+    print(msg)
+    sock.sendto(msg.encode("ascii"), (server, port))
 
 # Read settings
 env = Env()
@@ -32,9 +36,7 @@ sock.settimeout(2)
 while True:
     # Send announcement
     for robot in robots:
-        msg = robot._name
-        print(msg.encode("ascii"))
-        sock.sendto(msg.encode("ascii"), (server, port))
+        sendtoserver(robot._name)
         print('.')
     
     print('\n')
@@ -62,6 +64,13 @@ while True:
             for command in commands:
                 if msg.startswith(command[0]):
                     command[1](robot[0], msg)
+                    break
+            
+            # Find requests and send result
+            for request in requests:
+                if msg.startswith(request[0]):
+                    result = request[1](robot[0], msg)
+                    sendtoserver(robot[0]._name + ": " + result)
                     break
     except:
         pass
