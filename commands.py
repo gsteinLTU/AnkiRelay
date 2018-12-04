@@ -10,4 +10,4 @@ commands.append(("drivemm ", lambda robot, msg : robot.behavior.drive_straight(d
 
 # Requests
 requests = []
-requests.append(("get range", lambda robot, msg : "range " + str(int(robot.proximity.last_sensor_reading.distance.distance_mm))))
+requests.append(("get range", lambda robot, msg : str(int(robot.proximity.last_sensor_reading.distance.distance_mm))))

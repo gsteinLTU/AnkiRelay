@@ -1,6 +1,8 @@
 import anki_vector
 import socket
 import os
+import re
+import string
 from environs import Env
 from commands import commands, requests
 
@@ -65,12 +67,18 @@ while True:
                 if msg.startswith(command[0]):
                     command[1](robot[0], msg)
                     break
-            
-            # Find requests and send result
-            for request in requests:
-                if msg.startswith(request[0]):
-                    result = request[1](robot[0], msg)
-                    sendtoserver(robot[0]._name + ": " + result)
-                    break
+
+            if re.match("\\d+ .+", msg):
+                seq = int(msg.split(' ')[0])
+                msg = msg.lstrip(string.digits+' ')
+
+                print("Sequence number " + str(seq))
+                print("Received command " + msg)
+                # Find requests and send result
+                for request in requests:
+                    if msg.startswith(request[0]):
+                        result = request[1](robot[0], msg)
+                        sendtoserver(robot[0]._name + ": " + str(seq) + " " + result)
+                        break
     except:
         pass
