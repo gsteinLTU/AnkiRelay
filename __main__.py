@@ -25,7 +25,7 @@ if robots == []:
     raise Exception("No robots in .robots file.")
 
 # Connect to robots
-robots = [anki_vector.Robot(robot) for robot in robots]
+robots = [anki_vector.AsyncRobot(robot) for robot in robots]
 
 for robot in robots:
     robot.connect()
