@@ -8,6 +8,7 @@ commands.append(("spin", lambda robot, msg : robot.behavior.turn_in_place(degree
 commands.append(("turn ", lambda robot, msg : robot.behavior.turn_in_place(degrees(int(msg[5:])))))
 commands.append(("drivemm ", lambda robot, msg : robot.behavior.drive_straight(distance_mm(int(msg[8:])), speed_mmps(50))))
 commands.append(("set lift ", lambda robot, msg : robot.behavior.set_lift_height(float(msg[9:]))))
+commands.append(("set speed ", lambda robot, msg : robot.motors.set_wheel_motors(float(msg.split(' ')[2]), float(msg.split(' ')[3]))))
 
 # Requests
 requests = []
