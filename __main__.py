@@ -25,10 +25,15 @@ if robots == []:
     raise Exception("No robots in .robots file.")
 
 # Connect to robots
-robots = [anki_vector.AsyncRobot(robot.strip()) for robot in robots]
+temp = [anki_vector.AsyncRobot(robot.strip()) for robot in robots]
+robots = []
 
-for robot in robots:
-    robot.connect()
+for robot in temp:
+    try:
+        robot.connect()
+        robots.append(robot)
+    except:
+        pass
 
 # Setup server connection
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
