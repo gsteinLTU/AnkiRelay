@@ -66,6 +66,8 @@ class RobotThread(threading.Thread):
                         pass
             except Exception as e:
                 pass
+            finally:
+                self.sock.close()
 
             time.sleep(1)
 
