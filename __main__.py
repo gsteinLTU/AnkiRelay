@@ -11,6 +11,7 @@ import time
 class RobotThread(threading.Thread):
     lastport = 32323
 
+    # Sends a message to the server
     def sendtoserver(self, msg):
         print(msg)
         self.sock.sendto(msg.encode("ascii"), (server, port))
@@ -85,17 +86,17 @@ robots = []
 with open(".robots") as robotfile:
     robots = robotfile.readlines()
 
+# Quit if no robots found
 if robots == []:
     raise Exception("No robots in .robots file.")
 
 # Connect to robots
 robots = [RobotThread(robot.strip()) for robot in robots]
 
+# Run robots on their own threads
 for robot in robots:
     robot.start()
 
+# Let robots do their thing
 while True:
     pass
-    
-
-    
