@@ -41,33 +41,29 @@ class RobotThread(threading.Thread):
                     # Wait for message
                     try:
                         data, addr = self.sock.recvfrom(128)
-                        msg = data.decode('ascii')
-                        print("Received message " + msg)
+                        #msg = data.decode('ascii')
+                        #print("Received message " + msg)
 
-                        #     # Find command and run it
-                        #     for command in commands:
-                        #         if msg.startswith(command[0]):
-                        #             command[1](robot[0], msg)
-                        #             break
+                        command = chr(data[0])
+                        commandargs = data[1:]
 
-                        #     if re.match("\\d+ .+", msg):
-                        #         seq = int(msg.split(' ')[0])
-                        #         msg = msg.lstrip(string.digits+' ')
+                        print("Command: " + str(command))
 
-                        #         print("Sequence number " + str(seq))
-                        #         print("Received command " + msg)
-                        #         # Find requests and send result
-                        #         for request in requests:
-                        #             if msg.startswith(request[0]):
-                        #                 result = request[1](robot[0], msg)
-                        #                 sendtoserver(robot[0]._name + ": " + str(seq) + " " + result)
-                        #                 break
+                        if command == 'D':
+                            l = int.from_bytes(data[1:2], 'big', signed=True)
+                            r = int.from_bytes(data[3:4], 'big', signed=True)
+                            print(l, r)
+                            self.robot.motors.set_wheel_motors(l, r)
+                        if command == 'S':
+                            l = int.from_bytes(data[1:2], 'big', signed=True)
+                            r = int.from_bytes(data[3:4], 'big', signed=True)
+                            self.robot.motors.set_wheel_motors(l, r)
                     
                     except Exception as e:
-                        pass
+                        print(e)
             except Exception as e:
                 pass
-            finally:
+            else:
                 self.sock.close()
 
             time.sleep(1)
