@@ -8,6 +8,7 @@ from environs import Env
 from commands import commands, requests
 import threading 
 import time
+import struct
 
 class RobotThread(threading.Thread):
     lastport = 32323
@@ -37,7 +38,7 @@ class RobotThread(threading.Thread):
                 # Begin waiting for commands
                 while True:
                     # Send announcement
-                    self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + 'H'.encode('utf-8'))
+                    self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + 'A'.encode('utf-8'))
 
                     # Wait for message
                     try:
@@ -48,19 +49,25 @@ class RobotThread(threading.Thread):
                         command = chr(data[0])
                         commandargs = data[1:]
 
-                        print("Command: " + str(command))
+                        print("Command: " + str(data))
 
                         if command == 'D' or command =='S': # Drive
                             l = int.from_bytes(data[1:2], 'big', signed=True)
                             r = int.from_bytes(data[3:4], 'big', signed=True)
                             self.robot.motors.set_wheel_motors(l, r)
-                        if command == 'R': # Distance
+                        elif command == 'R': # Distance
                             dist = int(self.robot.proximity.last_sensor_reading.distance.distance_mm)
                             dist = dist.to_bytes(2, 'little')
                             output = b''
                             output += ord('R').to_bytes(1, 'big')
                             output += dist
                             self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + output)
+                        elif command == 'l': # Lift
+                            h = struct.unpack('f', data[1:])[0]
+                            print(h)
+                            self.robot.behavior.set_lift_height(h)
+                        elif command == 's': # Speak
+                            self.robot.say_text(data[1:].decode('utf-8'))
                     
                     except Exception as e:
                         print(e)
