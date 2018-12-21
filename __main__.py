@@ -11,7 +11,6 @@ import time
 import struct
 
 class RobotThread(threading.Thread):
-    lastport = 32323
 
     # Sends a message to the server
     def sendtoserver(self, msg):
@@ -30,11 +29,11 @@ class RobotThread(threading.Thread):
                 self.robot.connect()
 
                 # Setup server connection
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.sock.bind(('localhost', RobotThread.lastport))
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, proto=socket.IPPROTO_UDP)
+                self.sock.bind(('', 0))
+                
                 self.sock.settimeout(2)
-
-                RobotThread.lastport = RobotThread.lastport + 1
+                
                 # Begin waiting for commands
                 while True:
                     # Send announcement
@@ -43,8 +42,6 @@ class RobotThread(threading.Thread):
                     # Wait for message
                     try:
                         data, addr = self.sock.recvfrom(128)
-                        #msg = data.decode('ascii')
-                        #print("Received message " + msg)
 
                         command = chr(data[0])
                         commandargs = data[1:]
@@ -72,6 +69,7 @@ class RobotThread(threading.Thread):
                     except Exception as e:
                         print(e)
             except Exception as e:
+                print(e)
                 pass
             else:
                 self.sock.close()
@@ -85,7 +83,7 @@ class RobotThread(threading.Thread):
 env = Env()
 env.read_env()
 server = env('SERVER')
-port = 1973
+port = int(env('PORT'))
 
 # Read robot list
 robots = []
