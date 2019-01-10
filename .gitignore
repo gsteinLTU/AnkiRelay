@@ -105,3 +105,4 @@ venv.bak/
 
 # robot list
 .robots
+.vscode/settings.json

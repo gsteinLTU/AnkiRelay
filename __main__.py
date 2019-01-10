@@ -17,6 +17,7 @@ from environs import Env
 import anki_vector
 import anki_vector.events
 import anki_vector.screen
+import anki_vector.util
 
 
 # Controls a single robot
@@ -38,23 +39,27 @@ class RobotThread(threading.Thread):
 
         # # HW key size in numbers
         # self.key_length = key_length
+        self.receiving_key = False
+        self.key_buff = []
 
         # Status of virtual LEDs for display
         self.leds = [0, 0]
         self.ledtimer = threading.Timer(0.1, self.drawLEDs)
 
-    #
     def state_listener(self, _, msg):
         try:
             # Generate hardware key after sufficient touch time
             if msg.touch_data.is_being_touched:
-                if self.touch_count == 0:
+                if self.touch_count == 5:
                     self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + b'' + ord('P').to_bytes(1, 'big') + b'\x01')
                 self.touch_count = self.touch_count + 1
             else:
-                if self.touch_count > 0:
+                if self.touch_count > 5:
+                    self.receiving_key = True
+                    self.key_buff = []
                     self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + b'' + ord('P').to_bytes(1, 'big') + b'\x00')
-                self.touch_count = 0
+                if self.touch_count > 0:
+                    self.touch_count = 0
 
             ## If at threshold, generate key        
             #if self.touch_count == 5:
@@ -69,7 +74,7 @@ class RobotThread(threading.Thread):
 
 
                 # # Generate and display image
-                # keyimage = PIL.Image.new('RGBA', (184, 96), (0,0,0,255))
+                # keyimage = PIL.Image.new('RGBA', anki_vector.screen.dimensions(), (0,0,0,255))
                 # context = PIL.ImageDraw.Draw(keyimage)
                 # context.text((0,0), keytext, fill=(255,255,255,255), font=PIL.ImageFont.truetype("arial.ttf", 25))
                 # keyimage = anki_vector.screen.convert_image_to_screen_data(keyimage)
@@ -85,10 +90,11 @@ class RobotThread(threading.Thread):
         
         self.leds[pos] = value
 
+#10
     # Display virtual LEDs on screen
     def drawLEDs(self):
         try:
-            image = PIL.Image.new('RGBA', (184, 96), (0,0,0,255))
+            image = PIL.Image.new('RGBA', anki_vector.screen.dimensions(), (0,0,0,255))
             context = PIL.ImageDraw.Draw(image)
 
             for i in range(0,len(self.leds)):
@@ -111,7 +117,8 @@ class RobotThread(threading.Thread):
                 self.robot.connect()
                 self.robot.events.subscribe_by_name(self.state_listener, event_name='robot_state')
                 self.ledtimer.start()
-
+                self.robot.behavior.set_head_angle(anki_vector.util.degrees(45))
+                
                 # Setup server connection
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, proto=socket.IPPROTO_UDP)
                 self.sock.bind(('', 0))
@@ -145,7 +152,14 @@ class RobotThread(threading.Thread):
                             output += dist
                             self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + output)
                         elif command == 'L': #LED
-                            self.updateLED(data[1], data[2])
+                            if self.receiving_key:
+                                self.key_buff.append(data)
+
+                                if len(self.key_buff) == 16:
+                                    self.receiving_key = False
+                                    print(self.key_buff)
+                            else:
+                                self.updateLED(data[1], data[2])
                         elif command == 'l': # Lift
                             h = struct.unpack('f', data[1:])[0]
                             print(h)
