@@ -24,9 +24,13 @@ import anki_vector.util
 class RobotThread(threading.Thread):
 
     # Sends a message to the server
-    def sendtoserver(self, msg):
+    def _sendtoserver(self, msg):
         print(msg)
         self.sock.sendto(msg, (server, port))
+
+    # More user-friendly option to send to server, includes header
+    def send_info_to_server(self, msg):
+        self._sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + msg)
 
     def __init__(self, serial : str, key_length : int = 4):
         super().__init__()
@@ -46,42 +50,6 @@ class RobotThread(threading.Thread):
         self.leds = [0, 0]
         self.ledtimer = threading.Timer(0.1, self.drawLEDs)
 
-    def state_listener(self, _, msg):
-        try:
-            # Generate hardware key after sufficient touch time
-            if msg.touch_data.is_being_touched:
-                if self.touch_count == 5:
-                    self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + b'' + ord('P').to_bytes(1, 'big') + b'\x01')
-                self.touch_count = self.touch_count + 1
-            else:
-                if self.touch_count > 5:
-                    self.receiving_key = True
-                    self.key_buff = []
-                    self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + b'' + ord('P').to_bytes(1, 'big') + b'\x00')
-                if self.touch_count > 0:
-                    self.touch_count = 0
-
-            ## If at threshold, generate key        
-            #if self.touch_count == 5:
-                #self.sendtoserver('')
-                # print("Generating HW key for " + self.serial)
-
-                # # Create key
-                # key = [random.randint(1,32) for i in range(0, self.key_length)]
-                # keytext = ' '.join([str(i) for i in key])
-
-                # # TODO: Send key to server for use
-
-
-                # # Generate and display image
-                # keyimage = PIL.Image.new('RGBA', anki_vector.screen.dimensions(), (0,0,0,255))
-                # context = PIL.ImageDraw.Draw(keyimage)
-                # context.text((0,0), keytext, fill=(255,255,255,255), font=PIL.ImageFont.truetype("arial.ttf", 25))
-                # keyimage = anki_vector.screen.convert_image_to_screen_data(keyimage)
-                # self.robot.screen.set_screen_with_image_data(keyimage, 5.0, interrupt_running=True)
-        except Exception as e:
-            print(e)
-
     # Update value of virtual LED
     def updateLED(self, pos, value):
         # Validate length
@@ -90,24 +58,32 @@ class RobotThread(threading.Thread):
         
         self.leds[pos] = value
 
-#10
     # Display virtual LEDs on screen
     def drawLEDs(self):
-        try:
-            image = PIL.Image.new('RGBA', anki_vector.screen.dimensions(), (0,0,0,255))
-            context = PIL.ImageDraw.Draw(image)
+        lastledstate = [0, 0]
+        
+        # Default to blank image
+        image = PIL.Image.new('RGBA', anki_vector.screen.dimensions(), (0,0,0,255))
+        image = anki_vector.screen.convert_image_to_screen_data(image)
 
-            for i in range(0,len(self.leds)):
-                value = self.leds[i]
-                context.ellipse([0 + 64 * i, 0, 32 + 64 * i, 32], fill=(value * 255,value * 255,value * 255,255))
+        while True:
+            # Don't redraw image if unneeded
+            if not all([lastledstate[i] == self.leds[i] for i in range(0,len(self.leds))]):
+                try:
+                    image = PIL.Image.new('RGBA', anki_vector.screen.dimensions(), (0,0,0,255))
+                    context = PIL.ImageDraw.Draw(image)
 
-            image = anki_vector.screen.convert_image_to_screen_data(image)
-            self.robot.screen.set_screen_with_image_data(image, 0.1, interrupt_running=True)
-        except Exception as e:
-            print(e)  
+                    for i in range(0,len(self.leds)):
+                        value = self.leds[i]
+                        context.ellipse([0 + 64 * i, 0, 32 + 64 * i, 32], fill=(value * 255,value * 255,value * 255,255))
 
-        self.ledtimer = threading.Timer(0.1, self.drawLEDs)
-        self.ledtimer.start()
+                    image = anki_vector.screen.convert_image_to_screen_data(image)
+                    lastledstate = [self.leds[i] for i in range(0,len(self.leds))]
+                except Exception as e:
+                    print(e)
+                              
+            self.robot.screen.set_screen_with_image_data(image, 0.2, interrupt_running=True)
+            time.sleep(0.2)
 
     def run(self):
         while True:
@@ -115,7 +91,6 @@ class RobotThread(threading.Thread):
             try:
                 self.robot = anki_vector.AsyncRobot(self.serial.strip(), enable_face_detection=False, enable_camera_feed=False)
                 self.robot.connect()
-                self.robot.events.subscribe_by_name(self.state_listener, event_name='robot_state')
                 self.ledtimer.start()
                 self.robot.behavior.set_head_angle(anki_vector.util.degrees(45))
                 
@@ -128,7 +103,7 @@ class RobotThread(threading.Thread):
                 # Begin waiting for commands
                 while True:
                     # Send announcement
-                    self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + 'A'.encode('utf-8'))
+                    self.send_info_to_server('A'.encode('utf-8'))
 
                     # Wait for message
                     try:
@@ -150,7 +125,7 @@ class RobotThread(threading.Thread):
                             output = b''
                             output += ord('R').to_bytes(1, 'big')
                             output += dist
-                            self.sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + output)
+                            self.send_info_to_server(output)
                         elif command == 'L': #LED
                             if self.receiving_key:
                                 self.key_buff.append(data)
