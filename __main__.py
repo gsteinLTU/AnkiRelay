@@ -35,8 +35,8 @@ class RobotThread(threading.Thread):
     def state_listener(self, _, msg):
         try:
             # Generate hardware key after sufficient flipped time
-            if msg.accel.z < -1000:
-                if self.flipped_count == 10:
+            if msg.accel.z < -3000:
+                if self.flipped_count == 15:
                     self.send_info_to_server(b'' + ord('P').to_bytes(1, 'big') + b'\x00')
                     time.sleep(0.001)
                     self.send_info_to_server(b'' + ord('P').to_bytes(1, 'big') + b'\x01')
@@ -103,14 +103,22 @@ class RobotThread(threading.Thread):
                         elif command == 's': # Speak
                             self.robot.say_text(commandargs.decode('utf-8'))
                         elif command == 'K': # Display key
-                            key = [str(int(byte)) for byte in commandargs[1:]]
-                            keytext = ' '.join(key)
+
+                            # Assemble key string
+                            if key_mode == 'int':
+                                key = [str(int(byte)) for byte in commandargs[1:]]
+                                keytext = ' '.join(key)
+                            elif key_mode == 'binary':
+                                key = [bin(byte)[2:].zfill(4) for byte in commandargs[1:]]
+                                keytext = '\n'.join(key)
+                                
                             # Generate and display image
                             keyimage = PIL.Image.new('RGBA', (184, 96), (0,0,0,255))
                             context = PIL.ImageDraw.Draw(keyimage)
-                            context.text((0,0), keytext, fill=(255,255,255,255), font=PIL.ImageFont.truetype("arial.ttf", 25))
+                            context.text((0,0), keytext, fill=(255,255,255,255), font=PIL.ImageFont.truetype("arial.ttf", 21))
                             keyimage = anki_vector.screen.convert_image_to_screen_data(keyimage)
                             self.robot.screen.set_screen_with_image_data(keyimage, 0.5, interrupt_running=True)
+                            time.sleep(0.1)
                             self.robot.screen.set_screen_with_image_data(keyimage, 5.0, interrupt_running=True)
                     
                     except Exception as e:
@@ -127,6 +135,7 @@ env = Env()
 env.read_env()
 server = env('SERVER')
 port = int(env('PORT'))
+key_mode = env('KEYMODE', default='int')
 
 # Read robot list
 robots = []

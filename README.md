@@ -11,5 +11,8 @@ A `.env` file must be created with the following format:
 
     SERVER=[netsblox server ip]
     PORT=[anki-vector RPC port]
+    KEYMODE=[int or binary (optional, default is int)]
 
 Run `__main__.py` and the program will attempt to connect to all robots in `.robots` and relay commands sent by the NetsBlox server.
+
+The KEYMODE environment variable controls how the "hardware key" is displayed. For educational purposes, there are options to display it both as numeric values and as binary strings.
