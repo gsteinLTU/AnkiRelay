@@ -32,14 +32,28 @@ class RobotThread(threading.Thread):
     def send_info_to_server(self, msg):
         self._sendtoserver(self.serial[2:].encode('ascii') + int(time.time()).to_bytes(4,'big') + msg)
 
+    def state_listener(self, _, msg):
+        try:
+            # Generate hardware key after sufficient flipped time
+            if msg.accel.z < -1000:
+                if self.flipped_count == 10:
+                    self.send_info_to_server(b'' + ord('P').to_bytes(1, 'big') + b'\x00')
+                    time.sleep(0.001)
+                    self.send_info_to_server(b'' + ord('P').to_bytes(1, 'big') + b'\x01')
+                self.flipped_count = self.flipped_count + 1
+            else:
+                self.flipped_count = 0
+        except Exception as e:
+            print(e)
+
     def __init__(self, serial : str, key_length : int = 4):
         super().__init__()
 
         # Serial number of robot
         self.serial = serial 
 
-        # Used to keep track of touches for hardware key trigger
-        self.touch_count = 0
+        # Used to keep track of time spend upside down for hardware key trigger
+        self.flipped_count = 0
 
     def run(self):
         while True:
@@ -47,6 +61,7 @@ class RobotThread(threading.Thread):
             try:
                 self.robot = anki_vector.AsyncRobot(self.serial.strip(), enable_face_detection=False, enable_camera_feed=False)
                 self.robot.connect()
+                self.robot.events.subscribe_by_name(self.state_listener, event_name='robot_state')
                 self.robot.behavior.set_head_angle(anki_vector.util.degrees(45))
                 
                 # Setup server connection
@@ -82,11 +97,21 @@ class RobotThread(threading.Thread):
                             output += dist
                             self.send_info_to_server(output)
                         elif command == 'l': # Lift
-                            h = struct.unpack('f', data[1:])[0]
+                            h = struct.unpack('f', commandargs)[0]
                             print(h)
                             self.robot.behavior.set_lift_height(h)
                         elif command == 's': # Speak
-                            self.robot.say_text(data[1:].decode('utf-8'))
+                            self.robot.say_text(commandargs.decode('utf-8'))
+                        elif command == 'K': # Display key
+                            key = [str(int(byte)) for byte in commandargs[1:]]
+                            keytext = ' '.join(key)
+                            # Generate and display image
+                            keyimage = PIL.Image.new('RGBA', (184, 96), (0,0,0,255))
+                            context = PIL.ImageDraw.Draw(keyimage)
+                            context.text((0,0), keytext, fill=(255,255,255,255), font=PIL.ImageFont.truetype("arial.ttf", 25))
+                            keyimage = anki_vector.screen.convert_image_to_screen_data(keyimage)
+                            self.robot.screen.set_screen_with_image_data(keyimage, 0.5, interrupt_running=True)
+                            self.robot.screen.set_screen_with_image_data(keyimage, 5.0, interrupt_running=True)
                     
                     except Exception as e:
                         print(e)
